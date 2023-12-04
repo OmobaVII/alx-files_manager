@@ -25,9 +25,9 @@ class RedisClient {
       this.client.get(key, (error, response) => {
         if (error) {
           reject(error);
-	} else {
-	  accept(response);
-	}
+        } else {
+          accept(response);
+        }
       });
     });
   }
@@ -37,9 +37,9 @@ class RedisClient {
       this.client.setex(key, duration, value, (error, response) => {
         if (error) {
           reject(error);
-	} else {
+        } else {
           accept(response);
-	}
+        }
       });
     });
   }
@@ -49,9 +49,9 @@ class RedisClient {
       this.client.del(key, (error, response) => {
         if (error) {
           reject(error);
-	} else {
+        } else {
           accept(response);
-	}
+        }
       });
     });
   }
