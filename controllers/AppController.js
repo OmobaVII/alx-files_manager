@@ -7,9 +7,8 @@ const AppController = {
     const dbStatus = dbClient.isAlive();
     if (dbStatus && redisStatus) {
       return response.status(200).json({ redis: true, db: true });
-    } else {
-      return response.status(500).json({ redis: false, db: false });
     }
+    return response.status(500).json({ redis: false, db: false });
   },
 
   async getStats(request, response) {
@@ -17,7 +16,7 @@ const AppController = {
       const usersCount = await dbClient.nbUsers();
       const filesCount = await dbClient.nbFiles();
 
-      return response.status(200).json({ users: usersCount, files: filesCount })
+      return response.status(200).json({ users: usersCount, files: filesCount });
     } catch (err) {
       return response.status(500).json({ error: 'Error fetching stats' });
     }
