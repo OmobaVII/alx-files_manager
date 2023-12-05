@@ -1,6 +1,6 @@
 import sha1 from 'sha1';
 import Queue from 'bull/lib/queue';
-
+import redisClient from '../utils/redis';
 import dbClient from '../utils/db';
 
 const userQueue = new Queue('email sending');
@@ -30,7 +30,21 @@ class UsersController {
   }
 
   static async getMe(request, response) {
-    const { user } = request;
+    const token = request.headers['x-token'];
+
+    if (!token) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+    const userId = await redisClient.get(`auth_${token}`);
+    if (!userId) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const user = await (await dbClient.usersCollection()).findOne({ _id: userId });;
+    if (!user) {
+      return response.status(401).json({ error: 'Unauthorized' });
+    }
+
     response.status(200).json({ email: user.email, id: user._id.toString() });
   }
 }
