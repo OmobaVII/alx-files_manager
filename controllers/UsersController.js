@@ -40,12 +40,12 @@ class UsersController {
       return response.status(401).json({ error: 'Unauthorized' });
     }
 
-    const user = await (await dbClient.usersCollection()).findOne({ _id: userId });;
+    const user = await (await dbClient.usersCollection()).findOne({ _id: userId });
     if (!user) {
       return response.status(401).json({ error: 'Unauthorized' });
     }
 
-    response.status(200).json({ email: user.email, id: user._id.toString() });
+    return response.status(200).json({ email: user.email, id: user._id.toString() });
   }
 }
 
