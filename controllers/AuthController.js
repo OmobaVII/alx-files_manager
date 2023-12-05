@@ -13,13 +13,13 @@ class AuthController {
     const decodedCredentials = Buffer.from(encodedCredentials, 'base64').toString('utf-8');
     const [email, password] = decodedCredentials.split(':');
     const user = await (await dbClient.usersCollection())
-      .findOne({ email, password: sha1(password) });
+      .findOne({ email: email, password: sha1(password) });
     if (!user) {
       return response.status(401).json({ error: 'Unauthorized' });
     }
     const token = uuidv4();
 
-    await redisClient.set(`auth_${token}`, user._id, 24 * 60 * 60);
+    await redisClient.set(`auth_${token}`, user._id.toString(), 24 * 60 * 60);
     return response.status(200).json({ token });
   }
 
