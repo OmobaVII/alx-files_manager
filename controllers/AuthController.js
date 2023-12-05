@@ -33,7 +33,7 @@ class AuthController {
       return response.status(401).json({ error: 'Unauthorized' });
     }
     await redisClient.del(`auth_${token}`);
-    return response.status(204);
+    return response.status(204).end();
   }
 }
 
