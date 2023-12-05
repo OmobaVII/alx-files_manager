@@ -3,6 +3,9 @@ import Queue from 'bull/lib/queue';
 import redisClient from '../utils/redis';
 import dbClient from '../utils/db';
 
+const { ObjectId } = require('mongodb');
+const dbCli = require('../utils/db');
+
 const userQueue = new Queue('email sending');
 
 class UsersController {
@@ -31,7 +34,6 @@ class UsersController {
 
   static async getMe(request, response) {
     const token = request.headers['x-token'];
-
     if (!token) {
       return response.status(401).json({ error: 'Unauthorized' });
     }
@@ -39,13 +41,12 @@ class UsersController {
     if (!userId) {
       return response.status(401).json({ error: 'Unauthorized' });
     }
-
-    const user = await (await dbClient.usersCollection()).findOne({ _id: userId });
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userId) });
     if (!user) {
       return response.status(401).json({ error: 'Unauthorized' });
     }
 
-    return response.status(200).json({ email: user.email, id: user._id.toString() });
+    return response.status(200).json({ email: user.email, id: user._id });
   }
 }
 
