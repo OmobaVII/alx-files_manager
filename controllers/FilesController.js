@@ -57,9 +57,9 @@ const isValidId = (id) => {
 class FilesController {
   static async postUpload(req, res) {
     const token = req.headers['x-token'];
-    const user_id = await redisClient.get(`auth_${token}`);
-    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(user_id) });
-    const userId = user_id.toString();
+    const userIds = await redisClient.get(`auth_${token}`);
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userIds) });
+    const userId = userIds.toString();
     const name = req.body ? req.body.name : null;
     const type = req.body ? req.body.type : null;
     const parentId = req.body && req.body.parentId ? req.body.parentId : ROOT_FOLDER_ID;
@@ -127,11 +127,12 @@ class FilesController {
         : parentId,
     });
   }
+
   static async getShow(req, res) {
     const token = req.headers['x-token'];
-    const user_id = await redisClient.get(`auth_${token}`);
-    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(user_id) });
-    const userId = user_id.toString();
+    const userIds = await redisClient.get(`auth_${token}`);
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userIds) });
+    const userId = userIds.toString();
     const id = req.params ? req.params.id : NULL_ID;
     const file = await (await dbClient.filesCollection())
       .findOne({
@@ -152,18 +153,19 @@ class FilesController {
         : file.parentId.toString(),
     });
   }
+
   static async getIndex(req, res) {
     const token = req.headers['x-token'];
-    const user_id = await redisClient.get(`auth_${token}`);
-    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(user_id) });
-    const userId = user_id.toString();
+    const userIds = await redisClient.get(`auth_${token}`);
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userIds) });
+    const userId = userIds.toString();
     const parentId = req.query.parentId || ROOT_FOLDER_ID.toString();
     const page = /\d+/.test((req.query.page || '').toString())
       ? Number.parseInt(req.query.page, 10)
       : 0;
     const filesFilter = {
       userId: user._id,
-      parentId: parentId == ROOT_FOLDER_ID.toString()
+      parentId: parentId === ROOT_FOLDER_ID.toString()
         ? parentId
         : new mongoDBCore.BSON.ObjectId(isValidId(parentId) ? parentId : NULL_ID),
     };
@@ -183,17 +185,18 @@ class FilesController {
             isPublic: '$isPublic',
             parentId: {
               $cond: { if: { $eq: ['$parentId', '0'] }, then: 0, else: '$parentId' },
-	    },
-	  },
-	},
+            },
+          },
+        },
       ])).toArray();
     return res.status(200).json(files);
   }
+
   static async putPublish(req, res) {
     const token = req.headers['x-token'];
-    const user_id = await redisClient.get(`auth_${token}`);
-    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(user_id) });
-    const userId = user_id.toString();
+    const userIds = await redisClient.get(`auth_${token}`);
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userIds) });
+    const userId = userIds.toString();
     const { id } = req.params;
     const fileFilter = {
       _id: new mongoDBCore.BSON.ObjectId(isValidId(id) ? id : NULL_ID),
@@ -221,9 +224,9 @@ class FilesController {
 
   static async putUnpublish(req, res) {
     const token = req.headers['x-token'];
-    const user_id = await redisClient.get(`auth_${token}`);
-    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(user_id) });
-    const userId = user_id.toString();
+    const userIds = await redisClient.get(`auth_${token}`);
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userIds) });
+    const userId = userIds.toString();
     const { id } = req.params;
     const fileFilter = {
       _id: new mongoDBCore.BSON.ObjectId(isValidId(id) ? id : NULL_ID),
@@ -246,6 +249,42 @@ class FilesController {
         ? 0
         : file.parentId.toString(),
     });
+  }
+
+  static async getFile(req, res) {
+    const token = req.headers['x-token'];
+    const userIds = await redisClient.get(`auth_${token}`);
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userIds) });
+    const userId = user ? userIds.toString() : '';
+    const { id } = req.params;
+    const size = req.query.size || null;
+    const fileFilter = {
+      _id: new mongoDBCore.BSON.ObjectId(isValidId(id) ? id : NULL_ID),
+    };
+    const file = await (await dbClient.filesCollection())
+      .findOne(fileFilter);
+
+    if (!file || (!file.isPublic && (file.userId.toString() !== userId))) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    if (file.type === VALID_FILE_TYPES.folder) {
+      return res.status(400).json({ error: 'A folder doesn\'t have content' });
+    }
+    let filePath = file.localPath;
+    if (size) {
+      filePath = `${file.localPath}_${size}`;
+    }
+    if (existsSync(filePath)) {
+      const fileInfo = await statAsync(filePath);
+      if (!fileInfo.isFile()) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+    } else {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const absoluteFilePath = await realpathAsync(filePath);
+    res.setHeader('Content-Type', contentType(file.name) || 'text/plain; charset=utf-8');
+    return res.status(200).sendFile(absoluteFilePath);
   }
 }
 module.exports = FilesController;

@@ -37,11 +37,11 @@ class UsersController {
     if (!token) {
       return response.status(401).json({ error: 'Unauthorized' });
     }
-    const userId = await redisClient.get(`auth_${token}`);
-    if (!userId) {
+    const userIds = await redisClient.get(`auth_${token}`);
+    if (!userIds) {
       return response.status(401).json({ error: 'Unauthorized' });
     }
-    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userId) });
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userIds) });
     if (!user) {
       return response.status(401).json({ error: 'Unauthorized' });
     }
