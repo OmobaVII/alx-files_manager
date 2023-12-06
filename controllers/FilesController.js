@@ -14,9 +14,8 @@ import mongoDBCore from 'mongodb/lib/core';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
-const dbCli = require('../utils/db');
-
 const { ObjectId } = require('mongodb');
+const dbCli = require('../utils/db');
 
 const VALID_FILE_TYPES = {
   folder: 'folder',
