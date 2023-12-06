@@ -57,8 +57,9 @@ const isValidId = (id) => {
 class FilesController {
   static async postUpload(req, res) {
     const token = req.headers['x-token'];
-    const userId = await redisClient.get(`auth_${token}`);
-    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userId) });
+    const user_id = await redisClient.get(`auth_${token}`);
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(user_id) });
+    const userId = user_id.toString();
     const name = req.body ? req.body.name : null;
     const type = req.body ? req.body.type : null;
     const parentId = req.body && req.body.parentId ? req.body.parentId : ROOT_FOLDER_ID;
@@ -66,16 +67,13 @@ class FilesController {
     const base64Data = req.body && req.body.data ? req.body.data : '';
 
     if (!name) {
-      res.status(400).json({ error: 'Missing name' });
-      return;
+      return res.status(400).json({ error: 'Missing name' });
     }
     if (!type || !Object.values(VALID_FILE_TYPES).includes(type)) {
-      res.status(400).json({ error: 'Missing type' });
-      return;
+      return res.status(400).json({ error: 'Missing type' });
     }
     if (!req.body.data && type !== VALID_FILE_TYPES.folder) {
-      res.status(400).json({ error: 'Missing data' });
-      return;
+      return res.status(400).json({ error: 'Missing data' });
     }
     if ((parentId !== ROOT_FOLDER_ID) && (parentId !== ROOT_FOLDER_ID.toString())) {
       const file = await (await dbClient.filesCollection())
@@ -84,12 +82,10 @@ class FilesController {
         });
 
       if (!file) {
-        res.status(400).json({ error: 'Parent not found' });
-        return;
+        return res.status(400).json({ error: 'Parent not found' });
       }
       if (file.type !== VALID_FILE_TYPES.folder) {
-        res.status(400).json({ error: 'Parent is not a folder' });
-        return;
+        return res.status(400).json({ error: 'Parent is not a folder' });
       }
     }
     const baseDir = `${process.env.FOLDER_PATH || ''}`.trim().length > 0
@@ -120,7 +116,7 @@ class FilesController {
       const jobName = `Image thumbnail [${userId}-${fileId}]`;
       fileQueue.add({ userId, fileId, name: jobName });
     }
-    res.status(201).json({
+    return res.status(201).json({
       id: fileId,
       userId,
       name,
@@ -133,8 +129,9 @@ class FilesController {
   }
   static async getShow(req, res) {
     const token = req.headers['x-token'];
-    const userId = await redisClient.get(`auth_${token}`);
-    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userId) });
+    const user_id = await redisClient.get(`auth_${token}`);
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(user_id) });
+    const userId = user_id.toString();
     const id = req.params ? req.params.id : NULL_ID;
     const file = await (await dbClient.filesCollection())
       .findOne({
@@ -142,10 +139,9 @@ class FilesController {
         userId: new mongoDBCore.BSON.ObjectId(isValidId(userId) ? userId : NULL_ID),
       });
     if (!file) {
-      res.status(404).json({ error: 'Not found' });
-      return;
+      return res.status(404).json({ error: 'Not found' });
     }
-    res.status(200).json({
+    return res.status(200).json({
       id,
       userId,
       name: file.name,
@@ -158,8 +154,9 @@ class FilesController {
   }
   static async getIndex(req, res) {
     const token = req.headers['x-token'];
-    const userId = await redisClient.get(`auth_${token}`);
-    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userId) });
+    const user_id = await redisClient.get(`auth_${token}`);
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(user_id) });
+    const userId = user_id.toString();
     const parentId = req.query.parentId || ROOT_FOLDER_ID.toString();
     const page = /\d+/.test((req.query.page || '').toString())
       ? Number.parseInt(req.query.page, 10)
@@ -190,7 +187,65 @@ class FilesController {
 	  },
 	},
       ])).toArray();
-    res.status(200).json(files);
+    return res.status(200).json(files);
+  }
+  static async putPublish(req, res) {
+    const token = req.headers['x-token'];
+    const user_id = await redisClient.get(`auth_${token}`);
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(user_id) });
+    const userId = user_id.toString();
+    const { id } = req.params;
+    const fileFilter = {
+      _id: new mongoDBCore.BSON.ObjectId(isValidId(id) ? id : NULL_ID),
+      userId: new mongoDBCore.BSON.ObjectId(isValidId(userId) ? userId : NULL_ID),
+    };
+    const file = await (await dbClient.filesCollection())
+      .findOne(fileFilter);
+
+    if (!file) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    await (await dbClient.filesCollection())
+      .updateOne(fileFilter, { $set: { isPublic: true } });
+    return res.status(200).json({
+      id,
+      userId,
+      name: file.name,
+      type: file.type,
+      isPublic: true,
+      parentId: file.parentId === ROOT_FOLDER_ID.toString()
+        ? 0
+        : file.parentId.toString(),
+    });
+  }
+
+  static async putUnpublish(req, res) {
+    const token = req.headers['x-token'];
+    const user_id = await redisClient.get(`auth_${token}`);
+    const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(user_id) });
+    const userId = user_id.toString();
+    const { id } = req.params;
+    const fileFilter = {
+      _id: new mongoDBCore.BSON.ObjectId(isValidId(id) ? id : NULL_ID),
+      userId: new mongoDBCore.BSON.ObjectId(isValidId(userId) ? userId : NULL_ID),
+    };
+    const file = await (await dbClient.filesCollection())
+      .findOne(fileFilter);
+    if (!file) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    await (await dbClient.filesCollection())
+      .updateOne(fileFilter, { $set: { isPublic: false } });
+    return res.status(200).json({
+      id,
+      userId,
+      name: file.name,
+      type: file.type,
+      isPublic: false,
+      parentId: file.parentId === ROOT_FOLDER_ID.toString()
+        ? 0
+        : file.parentId.toString(),
+    });
   }
 }
 module.exports = FilesController;
