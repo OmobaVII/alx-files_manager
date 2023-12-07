@@ -58,6 +58,9 @@ class FilesController {
   static async postUpload(req, res) {
     const token = req.headers['x-token'];
     const userIds = await redisClient.get(`auth_${token}`);
+    if (!userIds) {
+      return res.status(400).json({ error: 'Unauthorized' });
+    }
     const user = await dbCli.client.db().collection('users').findOne({ _id: ObjectId(userIds) });
     const userId = userIds.toString();
     const name = req.body ? req.body.name : null;
